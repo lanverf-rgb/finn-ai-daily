@@ -1,92 +1,76 @@
 import os
 import datetime
 from google import genai
+from substack import Api
 
+# Gemini
 key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=key)
-
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 
 prompt = f"""You are FINN, AI Daily newsletter writer. Date: {today}.
 
-Write a complete AI Daily newsletter in English:
+Write AI Daily in English, format:
 
 # AI Daily - {today}
 
-Start with 1 sentence intro about AI today.
+Intro: 1 sentence.
 
-Then 4 stories, each format:
 ## 1. [Headline]
-**What happened:** 2 sentences, real news from last 24-48h
+**What happened:** 2 sentences real news last 24-48h
 **Why it matters:** 1 sentence
-**Source:** Name of real source
+**Source:** Real source
 
-Then:
+(Repeat for 4 stories)
+
 ## Quick Hits
-- 2 bullet points with small AI news
+- 2 bullets
 
 ## Tool of the Day
-- 1 useful AI tool
+- 1 tool
 
-Keep concise, real."""
+Keep concise, real news."""
 
-response = client.models.generate_content(
-    model="gemini-flash-lite-latest",
-    contents=prompt
-)
+resp = client.models.generate_content(model="gemini-flash-lite-latest", contents=prompt)
+text = resp.text
 
-text = response.text
-
-# Save files
 with open("substack_today.md", "w", encoding="utf-8") as f:
     f.write(text)
 with open("x_posts_today.md", "w", encoding="utf-8") as f:
     f.write(text[:2000])
 
-print("Generated OK")
+print("Generated")
 
-# Try to publish to Substack if secrets exist
-sub_email = os.environ.get("SUBSTACK_EMAIL")
-sub_pass = os.environ.get("SUBSTACK_PASSWORD")
-sub_pub = os.environ.get("SUBSTACK_PUB_URL", "")
+# Substack publish
+email = os.environ.get("SUBSTACK_EMAIL")
+pwd = os.environ.get("SUBSTACK_PASSWORD")
+pub_url = os.environ.get("SUBSTACK_PUB_URL", "https://finnaidaily.substack.com")
 
-if sub_email and sub_pass:
+if email and pwd:
     try:
-        print(f"Attempting Substack publish to {sub_pub}...")
-        from substack import Api
+        print(f"Publishing to {pub_url} as {email}")
+        api = Api(email=email, password=pwd, publication_url=pub_url)
         
-        # Clean pub url to get name
-        pub_name = sub_pub.replace("https://", "").replace("http://", "").split(".")[0].split("/")[0]
-        if "substack.com" in sub_pub:
-            pub_name = sub_pub.split("://")[1].split(".")[0]
+        draft_data = {
+            "title": f"AI Daily - {today}",
+            "subtitle": f"Your AI briefing for {today}",
+            "body": text,  # markdown supported
+            "audience": "everyone"
+        }
         
-        print(f"Pub name: {pub_name}")
+        draft = api.post_draft(draft_data)
+        print(f"DRAFT CREATED: {draft}")
+        print(f"Draft ID: {draft.get('id')}")
+        print("Check https://finnaidaily.substack.com/publish/drafts")
         
-        api = Api(email=sub_email, password=sub_pass, publication_url=sub_pub)
-        
-        # Create draft
-        title = f"AI Daily - {today}"
-        # Convert markdown to simple HTML for Substack
-        html_body = text.replace("\n", "<br>\n")
-        
-        draft = api.create_draft(
-            title=title,
-            subtitle="Your daily AI briefing",
-            body_html=f"<p>{html_body}</p>",
-            audience="everyone"
-        )
-        print(f"Draft created: {draft}")
-        
-        # Publish draft
-        # api.publish_draft(draft['id'])  # Uncomment to auto-publish, keeping as draft for safety first
-        
-        print("SUCCESS - Draft created in Substack! Check your drafts.")
-        
-        # For now create draft only - safer. After you verify draft, we enable auto-publish
+        # Auto-publish - uncomment next 2 lines when you want auto-publish
+        # print("Publishing...")
+        # api.publish_draft(draft['id'])
+        # print("PUBLISHED!")
         
     except Exception as e:
-        print(f"Substack publish failed (will still save files): {e}")
+        print(f"Substack error: {e}")
         import traceback
         traceback.print_exc()
 else:
-    print("No Substack secrets - skipping publish, files saved only")
+    print("Missing Substack secrets")
