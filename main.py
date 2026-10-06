@@ -1,70 +1,66 @@
 import os
 import datetime
+from google import genai
 
-print("Testing GitHub Actions...")
+print("Testing new google-genai library...")
 
 key = os.environ.get("GEMINI_API_KEY", "")
 if not key:
     print("ERROR: GEMINI_API_KEY secret not found!")
     exit(1)
 
-print(f"Key found: {key[:10]}... length {len(key)}")
+print(f"Key found: {key[:10]}... len {len(key)}")
 
 try:
-    import google.generativeai as genai
-    print("google-generativeai imported OK")
-except Exception as e:
-    print(f"Import failed: {e}")
-    exit(1)
+    client = genai.Client(api_key=key)
+    print("Client created OK")
 
-try:
-    genai.configure(api_key=key)
-    print("Configured OK")
+    # List available models to debug
+    print("Listing models...")
+    models = client.models.list()
+    for m in models:
+        if "flash" in m.name.lower() or "pro" in m.name.lower():
+            print(f" - {m.name}")
+
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
     
-    # UPDATED MODEL NAME - gemini-2.0-flash is deprecated, use 1.5-flash or 2.5-flash
-    model_name = "gemini-1.5-flash"
+    # Use gemini-2.5-flash - latest stable free model
+    model_name = "gemini-2.5-flash"
     print(f"Trying model: {model_name}")
     
-    model = genai.GenerativeModel(model_name)
-    print("Model created OK")
-    
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
     prompt = f"""You are AI Daily newsletter writer. Date: {today}.
 
-Write AI Daily with 4 AI news stories from last 24h. For each:
-- Headline
-- What happened (2 sentences)
-- Why it matters (1 sentence)
+Write AI Daily newsletter with 4 AI news stories from last 24h. Format:
 
-Keep it short and real. Search your knowledge for recent AI news."""
+# AI Daily - {today}
 
-    response = model.generate_content(prompt)
+1. **Headline**
+What happened: 2 sentences
+Why it matters: 1 sentence
+Source: real source name
+
+2. etc...
+
+Keep it short, real, English."""
+
+    response = client.models.generate_content(
+        model=model_name,
+        contents=prompt
+    )
+    
     text = response.text
     print("=== GENERATED ===")
     print(text)
     
     with open("substack_today.md", "w", encoding="utf-8") as f:
-        f.write(f"# AI Daily - {today}\n\n" + text)
+        f.write(text)
     with open("x_posts_today.md", "w", encoding="utf-8") as f:
-        f.write(f"# X Posts - {today}\n\n" + text[:1000])
+        f.write(text[:2000])
     
     print("SUCCESS - files saved")
-    
+
 except Exception as e:
-    print(f"ERROR during generation: {e}")
+    print(f"ERROR: {e}")
     import traceback
     traceback.print_exc()
-    # Try fallback model
-    try:
-        print("\nTrying fallback model gemini-1.5-flash-8b...")
-        model = genai.GenerativeModel("gemini-1.5-flash-8b")
-        response = model.generate_content("Write 4 short AI news headlines for today")
-        print(response.text)
-        with open("substack_today.md", "w", encoding="utf-8") as f:
-            f.write(response.text)
-        with open("x_posts_today.md", "w", encoding="utf-8") as f:
-            f.write("Fallback success")
-        print("Fallback SUCCESS")
-    except Exception as e2:
-        print(f"Fallback also failed: {e2}")
-        exit(1)
+    exit(1)
