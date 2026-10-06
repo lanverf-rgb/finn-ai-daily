@@ -1,76 +1,64 @@
 import os
 import datetime
 from google import genai
-from substack import Api
 
-# Gemini
 key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=key)
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 
-prompt = f"""You are FINN, AI Daily newsletter writer. Date: {today}.
+prompt = f"""You are FINN, AI Daily newsletter writer for finnaidaily.substack.com. Date: {today}.
 
-Write AI Daily in English, format:
+Write today's AI Daily in English, ready to paste into Substack.
+
+Format EXACTLY like this:
 
 # AI Daily - {today}
 
-Intro: 1 sentence.
+Good morning! Here are the 4 most important AI stories in the last 24h.
 
-## 1. [Headline]
-**What happened:** 2 sentences real news last 24-48h
-**Why it matters:** 1 sentence
-**Source:** Real source
+## 1. [Catchy Headline]
+**What happened:** 2-3 sentences with real news from last 24-48h
+**Why it matters:** 1 sentence impact
+**Source:** Real source name
 
-(Repeat for 4 stories)
+## 2. [Headline]
+**What happened:** ...
+**Why it matters:** ...
+**Source:** ...
+
+## 3. [Headline]
+**What happened:** ...
+**Why it matters:** ...
+**Source:** ...
+
+## 4. [Headline]
+**What happened:** ...
+**Why it matters:** ...
+**Source:** ...
 
 ## Quick Hits
-- 2 bullets
+- Bullet 1 with quick AI news
+- Bullet 2 with quick AI news
 
 ## Tool of the Day
-- 1 tool
+**[Tool Name]** - 1 sentence what it does + why cool. Link if possible.
 
-Keep concise, real news."""
+---
+That's all for today! See you tomorrow.
+
+Keep it concise, factual, no hype, real news only."""
 
 resp = client.models.generate_content(model="gemini-flash-lite-latest", contents=prompt)
 text = resp.text
 
+# Save files
 with open("substack_today.md", "w", encoding="utf-8") as f:
     f.write(text)
+
 with open("x_posts_today.md", "w", encoding="utf-8") as f:
-    f.write(text[:2000])
+    f.write(text[:2000] + "\n\n#AI #ArtificialIntelligence")
 
-print("Generated")
-
-# Substack publish
-email = os.environ.get("SUBSTACK_EMAIL")
-pwd = os.environ.get("SUBSTACK_PASSWORD")
-pub_url = os.environ.get("SUBSTACK_PUB_URL", "https://finnaidaily.substack.com")
-
-if email and pwd:
-    try:
-        print(f"Publishing to {pub_url} as {email}")
-        api = Api(email=email, password=pwd, publication_url=pub_url)
-        
-        draft_data = {
-            "title": f"AI Daily - {today}",
-            "subtitle": f"Your AI briefing for {today}",
-            "body": text,  # markdown supported
-            "audience": "everyone"
-        }
-        
-        draft = api.post_draft(draft_data)
-        print(f"DRAFT CREATED: {draft}")
-        print(f"Draft ID: {draft.get('id')}")
-        print("Check https://finnaidaily.substack.com/publish/drafts")
-        
-        # Auto-publish - uncomment next 2 lines when you want auto-publish
-        # print("Publishing...")
-        # api.publish_draft(draft['id'])
-        # print("PUBLISHED!")
-        
-    except Exception as e:
-        print(f"Substack error: {e}")
-        import traceback
-        traceback.print_exc()
-else:
-    print("Missing Substack secrets")
+print("="*50)
+print(text)
+print("="*50)
+print("Files saved: substack_today.md + x_posts_today.md")
