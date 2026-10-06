@@ -18,7 +18,11 @@ jobs:
       - name: Run FINN
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SUBSTACK_EMAIL: ${{ secrets.SUBSTACK_EMAIL }}
-          SUBSTACK_PASSWORD: ${{ secrets.SUBSTACK_PASSWORD }}
-          SUBSTACK_PUB_URL: ${{ secrets.SUBSTACK_PUB_URL }}
         run: python main.py
+      - name: Commit files
+        run: |
+          git config --global user.name "FINN Bot"
+          git config --global user.email "finn@bot.com"
+          git add substack_today.md x_posts_today.md || true
+          git commit -m "AI Daily $(date +%Y-%m-%d)" || true
+          git push || true
