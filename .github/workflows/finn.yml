@@ -1,0 +1,42 @@
+name: FINN AI Daily - Gemini Free Automation
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-finn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Debug - List files
+        run: |
+          pwd
+          ls -la
+          ls -la .github/workflows/ || echo "no workflows folder"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run FINN with Gemini API
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python main.py
+
+      - name: Upload today's outputs
+        uses: actions/upload-artifact@v5
+        with:
+          name: finn-output-${{ github.run_number }}
+          path: |
+            substack_today.md
+            x_posts_today.md
